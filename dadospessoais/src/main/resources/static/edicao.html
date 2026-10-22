@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8" />
+    <title>Editar Pessoa</title>
+    <style>
+        body { font-family: sans-serif; max-width: 700px; margin: 40px auto; padding: 0 16px; }
+        .campo { margin-bottom: 12px; }
+        label { display: block; font-weight: bold; margin-bottom: 4px; }
+        input[type=text], input[type=email], input[type=date] {
+            width: 100%; padding: 8px; box-sizing: border-box; border: 1px solid #ccc; border-radius: 4px;
+        }
+        .error-msg { color: red; font-size: 0.85em; margin: 2px 0 0; }
+        button { padding: 8px 16px; border: none; border-radius: 4px; cursor: pointer; margin-right: 8px; }
+        .checkbox-group label { display: inline-block; font-weight: normal; margin-right: 12px; }
+    </style>
+</head>
+<body>
+    <h1>Editar Pessoa: <span id="editUsername"></span></h1>
+    <form id="FormEdicao">
+        <div class="campo">
+            <label for="editNome">Nome</label>
+            <input type="text" id="editNome" required maxlength="100" />
+            <p id="err-nome" class="error-msg"></p>
+        </div>
+        <div class="campo">
+            <label for="editEmail">E-mail</label>
+            <input type="email" id="editEmail" required maxlength="100" />
+            <p id="err-email" class="error-msg"></p>
+        </div>
+        <div class="campo">
+            <label for="editTelefone">Telefone</label>
+            <input type="text" id="editTelefone" maxlength="20" />
+            <p id="err-telefone" class="error-msg"></p>
+        </div>
+        <div class="campo">
+            <label for="editDataNascimento">Data de nascimento</label>
+            <input type="date" id="editDataNascimento" required />
+            <p id="err-dataNascimento" class="error-msg"></p>
+        </div>
+        <div class="campo checkbox-group">
+            <span style="font-weight:bold">Conhecimentos</span><br/>
+            <label><input type="checkbox" name="editConhecimentos" value="Java">Java</label>
+            <label><input type="checkbox" name="editConhecimentos" value="Spring Boot">Spring Boot</label>
+            <label><input type="checkbox" name="editConhecimentos" value="JavaScript">JavaScript</label>
+            <label><input type="checkbox" name="editConhecimentos" value="Angular">Angular</label>
+            <label><input type="checkbox" name="editConhecimentos" value="React">React</label>
+        </div>
+        <button type="submit">Salvar alterações</button>
+        <button type="button" onclick="fecharEdicao()">Cancelar</button>
+    </form>
+
+    <script>
+        const parametros = new URLSearchParams(window.location.search);
+        const username = parametros.get('username');
+        document.getElementById('editUsername').textContent = username;
+
+        function limparErros() {
+            document.querySelectorAll('.error-msg').forEach(p => p.textContent = '');
+        }
+
+        function exibirErros(erros) {
+            for (const erro of erros) {
+                const el = document.getElementById(`err-${erro.field}`);
+                if (el) {
+                    el.textContent = erro.defaultMessage;
+                }
+            }
+        }
+
+        async function carregarPessoa() {
+            const resposta = await fetch(`/pessoas/${username}`);
+            if (!resposta.ok) {
+                alert('Não foi possível carregar os dados para edição.');
+                return;
+            }
+            const pessoa = await resposta.json();
+            document.getElementById('editNome').value = pessoa.nome;
+            document.getElementById('editEmail').value = pessoa.email;
+            document.getElementById('editTelefone').value = pessoa.telefone || '';
+            document.getElementById('editDataNascimento').value = pessoa.dataNascimento;
+            const conhecimentos = pessoa.conhecimentos || [];
+            for (const cb of document.querySelectorAll('input[name="editConhecimentos"]')) {
+                cb.checked = conhecimentos.includes(cb.value);
+            }
+        }
+
+        document.getElementById('FormEdicao').addEventListener('submit', async (evt) => {
+            evt.preventDefault();
+            limparErros();
+
+            const conhecimentos = [];
+            for (const cb of document.querySelectorAll('input[name="editConhecimentos"]:checked')) {
+                conhecimentos.push(cb.value);
+            }
+
+            const dados = {
+                nome: document.getElementById('editNome').value,
+                email: document.getElementById('editEmail').value,
+                telefone: document.getElementById('editTelefone').value,
+                dataNascimento: document.getElementById('editDataNascimento').value,
+                conhecimentos: conhecimentos
+            };
+
+            const resposta = await fetch(`/pessoas/${username}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(dados)
+            });
+
+            if (resposta.ok) {
+                alert('Pessoa alterada com sucesso!');
+                fecharEdicao();
+            } else if (resposta.status === 400) {
+                const dadosErros = await resposta.json();
+                if (dadosErros.errors) {
+                    exibirErros(dadosErros.errors);
+                }
+            } else {
+                alert('Erro ao alterar: HTTP ' + resposta.status);
+            }
+        });
+
+        function fecharEdicao() {
+            window.location.href = '/form.html';
+        }
+
+        carregarPessoa();
+    </script>
+</body>
+</html>

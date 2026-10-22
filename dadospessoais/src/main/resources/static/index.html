@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dados Pessoais - Pessoas cadastradas</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 900px; margin: 32px auto; padding: 0 16px; color: #222; }
+        input, button { padding: 9px; margin: 4px 0; }
+        li { margin: 12px 0; padding: 12px; border: 1px solid #ddd; border-radius: 6px; }
+        .erro { color: #a40000; }
+    </style>
+</head>
+<body>
+    <h1>Pessoas cadastradas</h1>
+    <p>Esta página consulta o endpoint GET /pessoas. Nesta Etapa 04, o serviço ainda utiliza dados em memória.</p>
+    <label for="username">Buscar por username:</label>
+    <input id="username" type="text" placeholder="Ex.: fulano">
+    <button id="buscar">Buscar</button>
+    <button id="listar">Listar todas</button>
+    <p><a href="/form.html">Cadastrar pessoa</a></p>
+    <p id="mensagem" role="status"></p>
+    <ul id="pessoas"></ul>
+    <script>
+        const lista = document.getElementById('pessoas');
+        const mensagem = document.getElementById('mensagem');
+
+        function mostrarPessoa(pessoa) {
+            const item = document.createElement('li');
+            const titulo = document.createElement('strong');
+            titulo.textContent = `${pessoa.nome} (@${pessoa.username})`;
+            const detalhes = document.createElement('p');
+            detalhes.textContent = `${pessoa.email} | ${pessoa.telefone || 'Sem telefone'} | Nascimento: ${pessoa.dataNascimento || 'Não informado'}`;
+            item.append(titulo, detalhes);
+            lista.appendChild(item);
+        }
+
+        async function listarPessoas() {
+            lista.replaceChildren();
+            mensagem.textContent = '';
+            try {
+                const resposta = await fetch('/pessoas');
+                if (!resposta.ok) throw new Error('Não foi possível consultar as pessoas.');
+                const pessoas = await resposta.json();
+                pessoas.forEach(mostrarPessoa);
+                if (pessoas.length === 0) mensagem.textContent = 'Nenhuma pessoa encontrada.';
+            } catch (erro) {
+                mensagem.className = 'erro';
+                mensagem.textContent = erro.message;
+            }
+        }
+
+        async function buscarPessoa() {
+            const username = document.getElementById('username').value.trim();
+            if (!username) {
+                mensagem.className = 'erro';
+                mensagem.textContent = 'Informe um username para buscar.';
+                return;
+            }
+            lista.replaceChildren();
+            mensagem.textContent = '';
+            try {
+                const resposta = await fetch(`/pessoas/${encodeURIComponent(username)}`);
+                if (!resposta.ok) throw new Error('Pessoa não encontrada.');
+                mostrarPessoa(await resposta.json());
+            } catch (erro) {
+                mensagem.className = 'erro';
+                mensagem.textContent = erro.message;
+            }
+        }
+
+        document.getElementById('listar').addEventListener('click', listarPessoas);
+        document.getElementById('buscar').addEventListener('click', buscarPessoa);
+        listarPessoas();
+    </script>
+</body>
+</html>

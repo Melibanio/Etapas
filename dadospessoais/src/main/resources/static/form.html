@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8" />
+    <title>Dados Pessoais</title>
+    <style>
+        body { font-family: sans-serif; max-width: 900px; margin: 40px auto; padding: 0 16px; }
+        .campo { margin-bottom: 12px; }
+        label { display: block; font-weight: bold; margin-bottom: 4px; }
+        input[type=text], input[type=email], input[type=date], input[type=password] {
+            width: 100%; padding: 8px; box-sizing: border-box; border: 1px solid #ccc; border-radius: 4px;
+        }
+        .error-msg { color: red; font-size: 0.85em; margin: 2px 0 0; }
+        button { padding: 8px 16px; border: none; border-radius: 4px; cursor: pointer; }
+        table { width: 100%; border-collapse: collapse; margin-top: 24px; }
+        th, td { border: 1px solid #ccc; padding: 8px; text-align: left; }
+        .checkbox-group label { display: inline-block; font-weight: normal; margin-right: 12px; }
+    </style>
+</head>
+<body>
+    <h1>Cadastro de Pessoas</h1>
+
+    <form id="pessoaForm" novalidate>
+        <div class="campo">
+            <label for="username">Username</label>
+            <input type="text" id="username" name="username" required maxlength="64" />
+            <p id="err-username" class="error-msg"></p>
+        </div>
+        <div class="campo">
+            <label for="nome">Nome</label>
+            <input type="text" id="nome" name="nome" required maxlength="100" />
+            <p id="err-nome" class="error-msg"></p>
+        </div>
+        <div class="campo">
+            <label for="email">E-mail</label>
+            <input type="email" id="email" name="email" required maxlength="100" />
+            <p id="err-email" class="error-msg"></p>
+        </div>
+        <div class="campo">
+            <label for="telefone">Telefone</label>
+            <input type="text" id="telefone" name="telefone" maxlength="20" />
+            <p id="err-telefone" class="error-msg"></p>
+        </div>
+        <div class="campo">
+            <label for="dataNascimento">Data de nascimento</label>
+            <input type="date" id="dataNascimento" name="dataNascimento" required />
+            <p id="err-dataNascimento" class="error-msg"></p>
+        </div>
+        <div class="campo">
+            <label for="senha">Senha</label>
+            <input type="password" id="senha" name="senha" required />
+            <p id="err-senha" class="error-msg"></p>
+        </div>
+        <div class="campo">
+            <label for="senhaRepeticao">Repetir senha</label>
+            <input type="password" id="senhaRepeticao" name="senhaRepeticao" required />
+            <p id="err-senhaRepeticao" class="error-msg"></p>
+        </div>
+        <div class="campo checkbox-group">
+            <span style="font-weight:bold">Conhecimentos</span><br/>
+            <label><input type="checkbox" name="conhecimentos" value="Java">Java</label>
+            <label><input type="checkbox" name="conhecimentos" value="Spring Boot">Spring Boot</label>
+            <label><input type="checkbox" name="conhecimentos" value="JavaScript">JavaScript</label>
+            <label><input type="checkbox" name="conhecimentos" value="Angular">Angular</label>
+            <label><input type="checkbox" name="conhecimentos" value="React">React</label>
+        </div>
+        <button type="submit">Cadastrar</button>
+    </form>
+
+    <h2>Pessoas cadastradas</h2>
+    <table>
+        <thead>
+            <tr><th>ID</th><th>Nome</th><th>Username</th><th>E-mail</th><th>Ações</th></tr>
+        </thead>
+        <tbody id="corpoTabela"></tbody>
+    </table>
+
+    <script>
+        async function carregarPessoas() {
+            try {
+                const response = await fetch('/pessoas');
+                if (!response.ok) {
+                    throw new Error('ErroHTTP:' + response.status);
+                }
+                const dados = await response.json();
+                const corpo = document.getElementById('corpoTabela');
+                corpo.innerHTML = '';
+                for (const pessoa of dados) {
+                    const linha = document.createElement('tr');
+                    linha.insertAdjacentHTML('beforeend', `
+                        <td>${pessoa.id}</td>
+                        <td>${pessoa.nome}</td>
+                        <td>${pessoa.username}</td>
+                        <td>${pessoa.email}</td>
+                        <td>
+                            <button onclick="editarPessoa('${pessoa.username}')">Editar</button>
+                            <button onclick="excluirPessoa('${pessoa.username}')">Excluir</button>
+                        </td>
+                    `);
+                    corpo.appendChild(linha);
+                }
+            } catch (erro) {
+                alert('Erro ao carregar a lista de pessoas: ' + erro.message);
+            }
+        }
+
+        function limparErros() {
+            document.querySelectorAll('.error-msg').forEach(p => p.textContent = '');
+        }
+
+        function exibirErros(erros) {
+            for (const erro of erros) {
+                const el = document.getElementById(`err-${erro.field}`);
+                if (el) {
+                    el.textContent = erro.defaultMessage;
+                }
+            }
+        }
+
+        document.getElementById('pessoaForm').addEventListener('submit', async (evt) => {
+            evt.preventDefault();
+            limparErros();
+
+            const form = evt.target;
+            const conhecimentos = [];
+            for (const cb of document.querySelectorAll('input[name="conhecimentos"]:checked')) {
+                conhecimentos.push(cb.value);
+            }
+
+            const dados = {
+                username: form.username.value,
+                nome: form.nome.value,
+                email: form.email.value,
+                telefone: form.telefone.value,
+                dataNascimento: form.dataNascimento.value,
+                senha: form.senha.value,
+                senhaRepeticao: form.senhaRepeticao.value,
+                conhecimentos: conhecimentos
+            };
+
+            try {
+                const resposta = await fetch('/pessoas', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(dados)
+                });
+                if (resposta.ok) {
+                    alert('Pessoa cadastrada com sucesso!');
+                    form.reset();
+                    carregarPessoas();
+                    return;
+                }
+                if (resposta.status === 400) {
+                    const dadosErros = await resposta.json();
+                    if (dadosErros.errors) {
+                        exibirErros(dadosErros.errors);
+                    }
+                    return;
+                }
+                alert('Erro inesperado ao cadastrar a pessoa.');
+            } catch (erro) {
+                alert('Não foi possível conectar ao servidor.');
+            }
+        });
+
+        async function editarPessoa(username) {
+            window.location.href = `/edicao.html?username=${encodeURIComponent(username)}`;
+        }
+
+        async function excluirPessoa(username) {
+            const confirmado = window.confirm(
+                `Deseja realmente excluir "${username}"? Esta ação não pode ser desfeita.`
+            );
+            if (!confirmado) return;
+            const resposta = await fetch(`/pessoas/${username}`, { method: 'DELETE' });
+            if (resposta.ok) {
+                alert('Pessoa excluída com sucesso!');
+                carregarPessoas();
+            } else {
+                alert('Erro ao excluir: HTTP ' + resposta.status);
+            }
+        }
+
+        carregarPessoas();
+    </script>
+</body>
+</html>
